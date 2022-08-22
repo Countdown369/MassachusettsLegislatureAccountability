@@ -1,0 +1,10 @@
+This dashboard is in its early stages - as of 08/22/22, this is the first fully working prototype which can both scrape the current data on representatives and tabulate it into the two output files:
+
+GeneralCourtCommitteeAppointments: Lists Chairs, Vice Chairs, and Members by committee.
+COMDATA: Lists data by representative (e.g. district, party, number of positions held, which positions are held).
+
+The script which accomplishes this is currently the only .py file in the repo:
+
+waysandmeans.py: Uses an UNVERIFIED SSL CONTEXT (be extremely careful if you care about security!) to scrape data from malegislature.gov and tabulate it into output files.
+
+Look forward to updates and please contact me if you've any questions or are interested into turning this data into an *online* dashboard; I'm not too good at JS these days.
