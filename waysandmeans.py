@@ -99,7 +99,10 @@ def oneCom(master, link, gcontext):
         else:
             return [committee, senateChair, nonrankingSenate, houseChair, houseViceChair, nonrankingHouse]
 
-def grabComstruct(master, nakedcomlinks, gcontext, comStruct):
+def grabComstruct(master, nakedcomlinks, gcontext):
+    
+    colnames = ["Committee", "Senate Chair", "Senate Vice Chair", "Senate Nonranking Member", "House Chair", "House Vice Chair", "House Nonranking Member"]
+    comStruct = pd.DataFrame(columns = colnames)
     
     for link in nakedcomlinks:
         
@@ -227,12 +230,16 @@ def rankMembers(og):
     
     return pointsdf
     
-def deets(collection, comDeets):
+def deets(collection):
     ff = 0
+    colnames = ["Member", "Chamber", "District", "Party", "Room", "Phone", "Email"]
+    comDeets = pd.DataFrame(columns = colnames)
+    repLinks = []
     for members in collection:
         ff = ff + 1
         while members.find("href") < members.find("tbody"):
             members = members[members.find('<td><a href="/Legislators/Profile'):]
+            repLinks.append("https://malegislature.gov/" + members[13:38])
             members = members[40:]
             first = members[:members.find('</a>')]
             
@@ -266,38 +273,9 @@ def deets(collection, comDeets):
                 comDeets.loc[len(comDeets.index)] = [first + " " + last, "House", district, party, room, number, email]
     
     comDeets = comDeets.set_index("Member")
-    return comDeets
+    return comDeets, repLinks[:-1]
 
-def main():
-    
-    master = "https://malegislature.gov/Committees/"
-    req = Request(master)
-    gcontext = ssl._create_unverified_context() # only for idiots
-    html_page = urlopen(req, context = gcontext)
-    
-    soup = BeautifulSoup(html_page, "lxml")
-    
-    links = []
-    for link in soup.findAll('a'):
-        links.append(link.get('href'))
-        
-    comlinks = []
-    for link in links:
-        if isinstance(link, str) and 'Committees/Detail' in link:
-            comlinks.append(link)
-                
-    nakedcomlinks = [link[12:] for link in comlinks]
-    
-    colnames = ["Committee", "Senate Chair", "Senate Vice Chair", "Senate Nonranking Member", "House Chair", "House Vice Chair", "House Nonranking Member"]
-    comStruct = pd.DataFrame(columns = colnames)
-    
-    comStruct = grabComstruct(master, nakedcomlinks, gcontext, comStruct)
-    
-    og = pd.read_excel("GeneralCourtCommitteeAppointments.xlsx")
-    pointsdf = rankMembers(og)
-    
-    colnames = ["Member", "Chamber", "District", "Party", "Room", "Phone", "Email"]
-    comDeets = pd.DataFrame(columns = colnames)
+def prepareMemberPages(gcontext):
     
     reqsub = Request("https://malegislature.gov/Legislators/Members/Senate")
     html_pagesub = urlopen(reqsub, context = gcontext)
@@ -311,10 +289,38 @@ def main():
     houseMembers = str(soupsub)
     houseMembers.replace('á', 'a')
     
-    comDeets = deets([senateMembers, houseMembers], comDeets)
+    return senateMembers, houseMembers
+    
+def main():
+    
+    gcontext = ssl._create_unverified_context() # only for idiots
+    
+    master = "https://malegislature.gov/Committees/"
+    req = Request(master)
+    html_page = urlopen(req, context = gcontext)
+    soup = BeautifulSoup(html_page, "lxml")
+    
+    links = []
+    for link in soup.findAll('a'):
+        links.append(link.get('href'))
+        
+    comlinks = []
+    for link in links:
+        if isinstance(link, str) and 'Committees/Detail' in link:
+            comlinks.append(link)
+                
+    nakedcomlinks = [link[12:] for link in comlinks]
+    
+    grabComstruct(master, nakedcomlinks, gcontext)
+    
+    comStruct = pd.read_excel("GeneralCourtCommitteeAppointments.xlsx")
+    pointsdf = rankMembers(comStruct)
+    
+    senateMembers, houseMembers = prepareMemberPages(gcontext)
+    
+    comDeets, repLinks = deets([senateMembers, houseMembers])
     
     comDat = pd.merge(comDeets, pointsdf, left_index=True, right_index=True)
     comDat.to_excel("COMDATA.xlsx")
-    
     
 main()
